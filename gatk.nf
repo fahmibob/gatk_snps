@@ -22,11 +22,11 @@ workflow {
     excludeFilteredVariants(variantFiltration.out, ref_CH)
     bqsr_1(excludeFilteredVariants.out, markdupplicate.out, ref_CH)
     bqsr_2(excludeFilteredVariants.out, bqsr_1.out, ref_CH)
-    analyzeCovariates(bqsr_1.out, bqsr_2.out)
+    //analyzeCovariates(bqsr_1.out, bqsr_2.out)
     call_variant_2(bqsr_1.out, ref_CH)
     extract_SNPs_indels2(call_variant_2.out, ref_CH)
     variantFiltration2(extract_SNPs_indels2.out, ref_CH)
-    
+
   }
 
 }
@@ -35,10 +35,10 @@ process bwa_mem {
   publishDir "$baseDir/output/$params.job/1_bwamem", mode: 'copy'
   maxForks params.forking
   //errorStrategy 'ignore'
-  
+
   input:
   tuple val(sampleName), path(forward), path(reverse)
-  path(reference) 
+  path(reference)
 
   output:
   tuple val(sampleName), path('*.sam')
@@ -46,7 +46,7 @@ process bwa_mem {
   script:
   """
     bwa index $reference
-    
+
     bwa mem -t 2\
     -K 100000000 \
     $reference \
@@ -60,7 +60,7 @@ process markdupplicate {
   publishDir "$baseDir/output/$params.job/2_markdupplicate", mode: 'copy'
   maxForks params.forking
   errorStrategy 'ignore'
-  
+
   input:
   tuple val(sampleName), path(samfile)
 
@@ -80,13 +80,13 @@ process collectAlignment {
   publishDir "$baseDir/output/$params.job/3_collectAlignment", mode: 'copy'
   maxForks params.forking
   errorStrategy 'ignore'
-  
+
   input:
   tuple val(sampleName), path(dedup), path(sorted_dedup)
-  path(reference) 
+  path(reference)
 
   output:
-  tuple path('*alignment_metrics.txt'), path('*insert_metrics.txt'), path('*insert_size_histogram.pdf'), path('*depth_out.txt') 
+  tuple path('*alignment_metrics.txt'), path('*insert_metrics.txt'), path('*insert_size_histogram.pdf'), path('*depth_out.txt')
 
   script:
   """
@@ -95,7 +95,7 @@ process collectAlignment {
         R=$reference \
         I=$sorted_dedup \
         O=$sampleName'alignment_metrics.txt'\
-    
+
     java -jar picard.jar \
         CollectInsertSizeMetrics \
         INPUT=$sorted_dedup \
@@ -110,10 +110,10 @@ process call_variant {
   publishDir "$baseDir/output/$params.job/4_call_variant", mode: 'copy'
   maxForks params.forking
   errorStrategy 'ignore'
-  
+
   input:
   tuple val(sampleName), path(dedup), path(sorted_dedup)
-  path(reference) 
+  path(reference)
 
   output:
   tuple val(sampleName), path('*raw_variants.vcf')
@@ -131,10 +131,10 @@ process extract_SNPs_indels {
     publishDir "$baseDir/output/$params.job/5_extract_SNPs_indels", mode: 'copy'
     maxForks params.forking
     errorStrategy 'ignore'
-  
+
     input:
     tuple val(sampleName), path(rawvariants)
-    path(reference) 
+    path(reference)
 
     output:
     tuple val(sampleName), path('*raw_snps.vcf'), path('*raw_indels.vcf')
@@ -146,7 +146,7 @@ process extract_SNPs_indels {
             -V $rawvariants \
             -selectType SNP \
             -o $sampleName'raw_snps.vcf'
-        
+
         gatk SelectVariants \
             -R $reference \
             -V $rawvariants \
@@ -159,10 +159,10 @@ process variantFiltration  {
     publishDir "$baseDir/output/$params.job/6_variantFiltration", mode: 'copy'
     maxForks params.forking
     errorStrategy 'ignore'
-  
+
     input:
     tuple val(sampleName), path(raw_snps), path(raw_indels)
-    path(reference) 
+    path(reference)
 
     output:
     tuple val(sampleName), path('*filtered_snps.vcf'), path('*filtered_indels.vcf')
@@ -195,10 +195,10 @@ process excludeFilteredVariants  {
     publishDir "$baseDir/output/$params.job/7_excludeFilteredVariants", mode: 'copy'
     maxForks params.forking
     errorStrategy 'ignore'
-  
+
     input:
     tuple val(sampleName), path(filtered_snps), path(filtered_indels)
-    path(reference) 
+    path(reference)
 
     output:
     tuple val(sampleName), path('*bqsr_snps.vcf'), path('*bqsr_indels.vcf')
@@ -209,7 +209,7 @@ process excludeFilteredVariants  {
         --exclude-filtered \
         -V $filtered_snps \
         -O $sampleName'bqsr_snps.vcf'
-        
+
         gatk SelectVariants \
         --exclude-filtered \
         -V $filtered_indels \
@@ -221,11 +221,11 @@ process bqsr_1  {
     publishDir "$baseDir/output/$params.job/8_bqsr_1", mode: 'copy'
     maxForks params.forking
     errorStrategy 'ignore'
-  
+
     input:
     tuple val(sampleName), path(bqsr_snps), path(bqsr_indels)
     tuple val(sampleName2), path(dedup), path(sorted_dedup)
-    path(reference) 
+    path(reference)
 
     output:
     tuple val(sampleName), path('*recal_data.table'), path('*recal_reads.bam')
@@ -251,11 +251,11 @@ process bqsr_2  {
     publishDir "$baseDir/output/$params.job/9_bqsr_2", mode: 'copy'
     maxForks params.forking
     errorStrategy 'ignore'
-  
+
     input:
     tuple val(sampleName), path(bqsr_snps), path(bqsr_indels)
     tuple val(sampleName2), path(recal_data), path(recal_reads)
-    path(reference) 
+    path(reference)
 
     output:
     path('*post_recal_data.table')
@@ -271,35 +271,35 @@ process bqsr_2  {
     """
 }
 
-process analyzeCovariates {
-    publishDir "$baseDir/output/$params.job/10_analyzeCovariates", mode: 'copy'
-    maxForks params.forking
-    errorStrategy 'ignore'
-  
-    input:
-    tuple val(sampleName), path(recal_data), path(recal_reads)
-    path(post_recal_data)
+//process analyzeCovariates {
+//    publishDir "$baseDir/output/$params.job/10_analyzeCovariates", mode: 'copy'
+//    maxForks params.forking
+//    errorStrategy 'ignore'
 
-    output:
-    tuple val(sampleName), path('*recalibration_plots.pdf')
+//    input:
+//    tuple val(sampleName), path(recal_data), path(recal_reads)
+//    path(post_recal_data)
 
-    script:
-    """
-      gatk AnalyzeCovariates \        
-      -before $recal_data \
-      -after $post_recal_data \
-      -plots $sampleName'recalibration_plots.pdf'
-    """
-}
+//    output:
+//    tuple val(sampleName), path('*recalibration_plots.pdf')
+
+//    script:
+  //  """
+    //  gatk AnalyzeCovariates \
+    //  -before $recal_data \
+    //  -after $post_recal_data \
+    //  -plots $sampleName'recalibration_plots.pdf'
+    //"""
+//}
 
 process call_variant_2 {
   publishDir "$baseDir/output/$params.job/11_call_variant_2", mode: 'copy'
   maxForks params.forking
   errorStrategy 'ignore'
-  
+
   input:
   tuple val(sampleName), path(recal_data), path(recal_reads)
-  path(reference) 
+  path(reference)
 
   output:
   tuple val(sampleName), path('*raw_variants_recal.vcf')
@@ -317,10 +317,10 @@ process extract_SNPs_indels2 {
     publishDir "$baseDir/output/$params.job/12_extract_SNPs_indels2", mode: 'copy'
     maxForks params.forking
     errorStrategy 'ignore'
-  
+
     input:
     tuple val(sampleName), path(rawvariantsrecal)
-    path(reference) 
+    path(reference)
 
     output:
     tuple val(sampleName), path('*raw_snps_recal.vcf'), path('*raw_indels_recal.vcf')
@@ -332,7 +332,7 @@ process extract_SNPs_indels2 {
             -V $rawvariantsrecal \
             -selectType SNP \
             -o $sampleName'raw_snps_recal.vcf'
-        
+
         gatk SelectVariants \
             -R $reference \
             -V $rawvariantsrecal \
@@ -345,10 +345,10 @@ process variantFiltration2  {
     publishDir "$baseDir/output/$params.job/13_variantFiltration2", mode: 'copy'
     maxForks params.forking
     errorStrategy 'ignore'
-  
+
     input:
     tuple val(sampleName), path(raw_snps_recal), path(raw_indels_recal)
-    path(reference) 
+    path(reference)
 
     output:
     tuple val(sampleName), path('*filtered_snps_final.vcf'), path('*filtered_indels_final.vcf')
@@ -381,7 +381,7 @@ process compileStatistics {
     publishDir "$baseDir/output/$params.job/14_compileStatistics", mode: 'copy'
     maxForks params.forking
     errorStrategy 'ignore'
-  
+
     input:
     //collectAlignment
     tuple path(alignment_metrics), path(insert_metrics), path(insert_size_histogram), path(depth_out)
@@ -409,10 +409,6 @@ process compileStatistics {
             $filtered_snps\
             $filtered_snps_final \
             $depth_out \
-            $sampleName > $sampleName'_report.csv'    
+            $sampleName > $sampleName'_report.csv'
     """
 }
-
-
-
-
