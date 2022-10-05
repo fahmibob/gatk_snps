@@ -1,2 +1,5 @@
-*.fastqc
+*.fastq
 *.fasta
+.nextflow/
+*nextflow*
+work/
