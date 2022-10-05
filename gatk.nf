@@ -68,7 +68,7 @@ workflow {
 process markdupplicate {
   publishDir "$baseDir/output/$params.job/2_markdupplicate", mode: 'copy'
   maxForks params.forking
-  errorStrategy 'ignore'
+  
 
   input:
   tuple val(sampleName), path(samfile)
