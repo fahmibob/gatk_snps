@@ -1,24 +1,24 @@
 nextflow.enable.dsl=2
-params.fastq_input="regia_{1,2}.fasta"
+params.inputsam="aligned_regia.sam"
 params.ref="asmbly_arabidopsis_21.fasta"
 params.index="$baseDir/index/*"
 params.forking=4
 params.job="default"
 
 workflow {
-  if (params.fastq_input) {
-    Channel.fromFilePairs(params.fastq_input)
-      .map {key, file -> tuple(key, file[0], file[1])}
+  if (params.inputsam) {
+    Channel.fromPath(params.inputsam)
+      .map {file -> tuple(file.simpleName, file)}
       .set{pairs_CH}
-    Channel.fromPath(params.index)
-      .collect()
-      .set{index_CH}
+    //Channel.fromPath(params.index)
+    //  .collect()
+    //  .set{index_CH}
 
     Channel.fromPath(params.ref)
       .set{ref_CH}
 
-    bwa_mem(pairs_CH, index_CH, ref_CH)
-    markdupplicate(bwa_mem.out)
+    //bwa_mem(pairs_CH, index_CH, ref_CH)
+    markdupplicate(pairs_CH)
     collectAlignment(markdupplicate.out, ref_CH)
     call_variant(markdupplicate.out, ref_CH)
     extract_SNPs_indels(call_variant.out, ref_CH)
@@ -35,29 +35,35 @@ workflow {
 
 }
 
-process bwa_mem {
-  publishDir "$baseDir/output/$params.job/1_bwamem", mode: 'copy'
-  maxForks params.forking
+//process bwa_mem {
+  //publishDir "$baseDir/output/$params.job/1_bwamem", mode: 'copy'
+  //maxForks params.forking
   //errorStrategy 'ignore'
 
-  input:
-  tuple val(sampleName), path(forward), path(reverse)
-  path(index)
-  path(reference)
+  //input:
+  //tuple val(sampleName), path(forward), path(reverse)
+  //path(index)
+  //path(reference)
 
-  output:
-  tuple val(sampleName), path('*.sam')
+  //output:
+  //tuple val(sampleName), path('*.sam')
 
-  script:
-  """
-    bwa mem -t 2\
-    -K 100000000 \
-    $reference \
-    $forward \
-    $reverse \
-    > aligned_$sampleName'.sam'
-  """
-}
+  //script:
+  //"""
+
+  //header=$(zcat $1 | head -n 1)
+  //id=$(echo $header | head -n 1 | cut -f 1-4 -d":" | sed 's/@//' | sed 's/:/_/g')
+  //sm=$(echo $header | head -n 1 | grep -Eo "[ATGCN]+$")
+  //echo "Read Group @RG\tID:$id\tSM:$id"_"$sm\tLB:$id"_"$sm\tPL:ILLUMINA"
+  //\$(echo "@RG\tID:\$id\tSM:\$id"_"\$sm\tLB:\$id"_"\$sm\tPL:ILLUMINA")
+  //  bwa mem -t 2\
+  //  -K 100000000 \
+  //  $reference \
+  //  $forward \
+  //  $reverse \
+  //  > aligned_$sampleName'.sam'
+  //"""
+//}
 
 process markdupplicate {
   publishDir "$baseDir/output/$params.job/2_markdupplicate", mode: 'copy'
@@ -72,7 +78,7 @@ process markdupplicate {
 
   script:
   """
-    GATK MarkDuplicatesSpark \
+    gatk MarkDuplicatesSpark \
         -I $samfile \
         -M $sampleName'dedup_metrics.txt' \
         -O $sampleName'sorted_dedup_reads.bam'
