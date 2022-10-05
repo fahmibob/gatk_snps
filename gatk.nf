@@ -1,6 +1,7 @@
 nextflow.enable.dsl=2
-params.fastq_input="repaired_trimmed_Bjaponica-061_S156_{R1,R2}_001.fastq"
-params.ref="ReferenceGenome.fasta"
+params.fastq_input="regia_{1,2}.fasta"
+params.ref="asmbly_arabidopsis_21.fasta"
+params.index="$baseDir/index/*"
 params.forking=4
 params.job="default"
 
@@ -9,11 +10,14 @@ workflow {
     Channel.fromFilePairs(params.fastq_input)
       .map {key, file -> tuple(key, file[0], file[1])}
       .set{pairs_CH}
+    Channel.fromPath(params.index)
+      .collect()
+      .set{index_CH}
 
     Channel.fromPath(params.ref)
       .set{ref_CH}
 
-    bwa_mem(pairs_CH, ref_CH)
+    bwa_mem(pairs_CH, index_CH, ref_CH)
     markdupplicate(bwa_mem.out)
     collectAlignment(markdupplicate.out, ref_CH)
     call_variant(markdupplicate.out, ref_CH)
@@ -38,6 +42,7 @@ process bwa_mem {
 
   input:
   tuple val(sampleName), path(forward), path(reverse)
+  path(index)
   path(reference)
 
   output:
@@ -45,8 +50,6 @@ process bwa_mem {
 
   script:
   """
-    bwa index $reference
-
     bwa mem -t 2\
     -K 100000000 \
     $reference \
