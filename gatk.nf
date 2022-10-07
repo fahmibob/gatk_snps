@@ -438,7 +438,7 @@ process compileStatistics {
 
 
     output:
-    tuple val(sampleName), path('*filtered_snps_final.vcf'), path('*filtered_indels_final.vcf')
+    path('*_report.csv')
 
     script:
     parse="$baseDir/bin/parse_metrics.sh"
