@@ -252,16 +252,25 @@ process bqsr_1  {
 
     script:
     """
+        java -jar picard.jar AddOrReplaceReadGroups \
+           I=$sorted_dedup \
+           O=ModifiedRG$sorted_dedup \
+           RGID=iriomote \
+           RGLB=lib1 \
+           RGPL=ILLUMINA \
+           RGPU=unit1 \
+           RGSM=061
+
         gatk BaseRecalibrator \
         -R $reference \
-        -I $sorted_dedup \
+        -I ModifiedRG$sorted_dedup \
         --known-sites $bqsr_snps \
         --known-sites $bqsr_indels \
         -O $sampleName'recal_data.table'
 
         gatk ApplyBQSR \
         -R $reference \
-        -I $sorted_dedup \
+        -I ModifiedRG$sorted_dedup \
         -bqsr $sampleName'recal_data.table' \
         -O $sampleName'recal_reads.bam' \
     """
