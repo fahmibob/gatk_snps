@@ -81,7 +81,7 @@ process markdupplicate {
 
   script:
   """
-    java -jar picard.jar SortSam I=$samfile O=sorted$samfile SORT_ORDER=coordinate
+    java -jar ~/picard.jar SortSam I=$samfile O=sorted$samfile SORT_ORDER=coordinate
     gatk MarkDuplicates \
         -I sorted$samfile \
         -M $sampleName'dedup_metrics.txt' \
@@ -103,13 +103,13 @@ process collectAlignment {
 
   script:
   """
-    java -jar picard.jar \
+    java -jar ~/picard.jar \
         CollectAlignmentSummaryMetrics \
         -R $reference \
         -I $sorted_dedup \
         -O $sampleName'alignment_metrics.txt'\
 
-    java -jar picard.jar \
+    java -jar ~/picard.jar \
         CollectInsertSizeMetrics \
         I=$sorted_dedup \
         O=$sampleName'insert_metrics.txt' \
