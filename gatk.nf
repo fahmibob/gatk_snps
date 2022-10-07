@@ -81,7 +81,7 @@ process markdupplicate {
 
   script:
   """
-    samtools sort $samfile -O sorted$samfile
+    java -jar picard.jar SortSam I=$samfile O=sorted$samfile SORT_ORDER=coordinate
     gatk MarkDuplicates \
         -I sorted$samfile \
         -M $sampleName'dedup_metrics.txt' \
