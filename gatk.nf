@@ -135,6 +135,7 @@ process call_variant {
 
   script:
   """
+    samtools index $sorted_dedup
     gatk HaplotypeCaller \
         -R $reference \
         -I $sorted_dedup \
@@ -322,6 +323,7 @@ process call_variant_2 {
 
   script:
   """
+    samtools index $recal_data
     gatk HaplotypeCaller \
         -R $reference \
         -I $recal_data \
