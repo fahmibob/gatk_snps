@@ -343,10 +343,10 @@ process call_variant_2 {
 
   script:
   """
-    samtools index $recal_data
+    samtools index $recal_reads
     gatk HaplotypeCaller \
         -R $reference \
-        -I $recal_data \
+        -I $recal_reads \
         -O $sampleName'raw_variants_recal.vcf'
   """
 }
