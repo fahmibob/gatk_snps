@@ -442,7 +442,7 @@ process compileStatistics {
     script:
     parse="$baseDir/bin/parse_metrics.sh"
     """
-        $parse $alignment_metrics \
+        bash $parse $alignment_metrics \
             $insert_metrics \
             $dedup_metrics \
             $filtered_snps\
