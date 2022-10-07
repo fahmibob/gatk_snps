@@ -4,6 +4,7 @@ params.ref="ReferenceGenome.fasta"
 params.index="$baseDir/index/*"
 params.forking=4
 params.job="default"
+params.parse="$baseDir/bin/parse_metrics.sh"
 
 workflow {
   if (params.inputsam) {
@@ -442,7 +443,7 @@ process compileStatistics {
     script:
     parse="$baseDir/bin/parse_metrics.sh"
     """
-        bash $parse $alignment_metrics \
+        bash $params.parse $alignment_metrics \
             $insert_metrics \
             $dedup_metrics \
             $filtered_snps\
