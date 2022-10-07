@@ -252,14 +252,18 @@ process bqsr_1  {
 
     script:
     """
-        java -jar ~/picard.jar AddOrReplaceReadGroups \
-           I=$sorted_dedup \
-           O=ModifiedRG$sorted_dedup \
-           RGID=iriomote \
-           RGLB=lib1 \
-           RGPL=ILLUMINA \
-           RGPU=unit1 \
-           RGSM=061
+    java -jar ~/picard.jar AddOrReplaceReadGroups \
+      I=$sorted_dedup \
+      O=ModifiedRG$sorted_dedup \
+      RGID=iriomote \
+      RGLB=lib1 \
+      RGPL=ILLUMINA \
+      RGPU=unit1 \
+      RGSM=061
+
+    gatk IndexFeatureFile -I $bqsr_snps
+    gatk IndexFeatureFile -I $bqsr_indels
+
 
         gatk BaseRecalibrator \
         -R $reference \
@@ -292,6 +296,8 @@ process bqsr_2  {
 
     script:
     """
+    gatk IndexFeatureFile -I $bqsr_snps
+    gatk IndexFeatureFile -I $bqsr_indels
         gatk BaseRecalibrator \
         -R $reference \
         -I $recal_reads \
