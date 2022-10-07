@@ -81,8 +81,9 @@ process markdupplicate {
 
   script:
   """
-    gatk MarkDuplicatesSpark \
-        -I $samfile \
+    samtools sort $samfile -O sorted$samfile
+    gatk MarkDuplicates \
+        -I sorted$samfile \
         -M $sampleName'dedup_metrics.txt' \
         -O $sampleName'sorted_dedup_reads.bam'
   """
