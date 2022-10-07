@@ -394,7 +394,6 @@ process variantFiltration2  {
     tuple val(sampleName), path('*filtered_snps_final.vcf'), path('*filtered_indels_final.vcf')
 
     script:
-    fullName=data.getName()
     """
         gatk VariantFiltration \
         -R $reference \
