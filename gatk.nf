@@ -24,15 +24,15 @@ workflow {
     markdupplicate(pairs_CH)
     collectAlignment(markdupplicate.out, ref_CH)
     call_variant(markdupplicate.out, ref_CH, index_CH)
-    extract_SNPs_indels(call_variant.out, ref_CH)
-    variantFiltration(extract_SNPs_indels.out, ref_CH)
-    excludeFilteredVariants(variantFiltration.out, ref_CH)
-    bqsr_1(excludeFilteredVariants.out, markdupplicate.out, ref_CH)
-    bqsr_2(excludeFilteredVariants.out, bqsr_1.out, ref_CH)
+    extract_SNPs_indels(call_variant.out, ref_CH, index_CH)
+    variantFiltration(extract_SNPs_indels.out, ref_CH, index_CH)
+    excludeFilteredVariants(variantFiltration.out, ref_CH, index_CH)
+    bqsr_1(excludeFilteredVariants.out, markdupplicate.out, ref_CH, index_CH)
+    bqsr_2(excludeFilteredVariants.out, bqsr_1.out, ref_CH, index_CH)
     //analyzeCovariates(bqsr_1.out, bqsr_2.out)
     call_variant_2(bqsr_1.out, ref_CH, index_CH)
-    extract_SNPs_indels2(call_variant_2.out, ref_CH)
-    variantFiltration2(extract_SNPs_indels2.out, ref_CH)
+    extract_SNPs_indels2(call_variant_2.out, ref_CH, index_CH)
+    variantFiltration2(extract_SNPs_indels2.out, ref_CH, index_CH)
     compileStatistics(collectAlignment.out, markdupplicate.out, extract_SNPs_indels.out, variantFiltration.out, extract_SNPs_indels2.out, variantFiltration2.out)
   }
 
@@ -151,6 +151,7 @@ process extract_SNPs_indels {
     input:
     tuple val(sampleName), path(rawvariants)
     path(reference)
+    path(index)
 
     output:
     tuple val(sampleName), path('*raw_snps.vcf'), path('*raw_indels.vcf')
@@ -179,6 +180,7 @@ process variantFiltration  {
     input:
     tuple val(sampleName), path(raw_snps), path(raw_indels)
     path(reference)
+    path(index)
 
     output:
     tuple val(sampleName), path('*filtered_snps.vcf'), path('*filtered_indels.vcf')
@@ -215,6 +217,7 @@ process excludeFilteredVariants  {
     input:
     tuple val(sampleName), path(filtered_snps), path(filtered_indels)
     path(reference)
+    path(index)
 
     output:
     tuple val(sampleName), path('*bqsr_snps.vcf'), path('*bqsr_indels.vcf')
@@ -242,6 +245,7 @@ process bqsr_1  {
     tuple val(sampleName), path(bqsr_snps), path(bqsr_indels)
     tuple val(sampleName2), path(dedup), path(sorted_dedup)
     path(reference)
+    path(index)
 
     output:
     tuple val(sampleName), path('*recal_data.table'), path('*recal_reads.bam')
@@ -272,6 +276,7 @@ process bqsr_2  {
     tuple val(sampleName), path(bqsr_snps), path(bqsr_indels)
     tuple val(sampleName2), path(recal_data), path(recal_reads)
     path(reference)
+    path(index)
 
     output:
     path('*post_recal_data.table')
@@ -339,6 +344,7 @@ process extract_SNPs_indels2 {
     input:
     tuple val(sampleName), path(rawvariantsrecal)
     path(reference)
+    path(index)
 
     output:
     tuple val(sampleName), path('*raw_snps_recal.vcf'), path('*raw_indels_recal.vcf')
@@ -367,6 +373,7 @@ process variantFiltration2  {
     input:
     tuple val(sampleName), path(raw_snps_recal), path(raw_indels_recal)
     path(reference)
+    path(index)
 
     output:
     tuple val(sampleName), path('*filtered_snps_final.vcf'), path('*filtered_indels_final.vcf')
