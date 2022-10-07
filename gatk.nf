@@ -252,7 +252,7 @@ process bqsr_1  {
 
     script:
     """
-        java -jar picard.jar AddOrReplaceReadGroups \
+        java -jar ~/picard.jar AddOrReplaceReadGroups \
            I=$sorted_dedup \
            O=ModifiedRG$sorted_dedup \
            RGID=iriomote \
