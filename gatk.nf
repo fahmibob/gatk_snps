@@ -1,6 +1,6 @@
 nextflow.enable.dsl=2
-params.inputsam="aligned_regia.sam"
-params.ref="asmbly_arabidopsis_21.fasta"
+params.inputsam="aligned_061.sam"
+params.ref="ReferenceGenome.fasta"
 params.index="$baseDir/index/*"
 params.forking=4
 params.job="default"
@@ -16,21 +16,24 @@ workflow {
 
     Channel.fromPath(params.ref)
       .set{ref_CH}
+    Channel.fromPath(params.index)
+      .collect()
+      .set{index_CH}
 
     //bwa_mem(pairs_CH, index_CH, ref_CH)
     markdupplicate(pairs_CH)
     collectAlignment(markdupplicate.out, ref_CH)
-    call_variant(markdupplicate.out, ref_CH)
+    call_variant(markdupplicate.out, ref_CH, index_CH)
     extract_SNPs_indels(call_variant.out, ref_CH)
     variantFiltration(extract_SNPs_indels.out, ref_CH)
     excludeFilteredVariants(variantFiltration.out, ref_CH)
     bqsr_1(excludeFilteredVariants.out, markdupplicate.out, ref_CH)
     bqsr_2(excludeFilteredVariants.out, bqsr_1.out, ref_CH)
     //analyzeCovariates(bqsr_1.out, bqsr_2.out)
-    call_variant_2(bqsr_1.out, ref_CH)
+    call_variant_2(bqsr_1.out, ref_CH, index_CH)
     extract_SNPs_indels2(call_variant_2.out, ref_CH)
     variantFiltration2(extract_SNPs_indels2.out, ref_CH)
-
+    compileStatistics(collectAlignment.out, markdupplicate.out, extract_SNPs_indels.out, variantFiltration.out, extract_SNPs_indels2.out, variantFiltration2.out)
   }
 
 }
@@ -68,7 +71,7 @@ workflow {
 process markdupplicate {
   publishDir "$baseDir/output/$params.job/2_markdupplicate", mode: 'copy'
   maxForks params.forking
-  
+
 
   input:
   tuple val(sampleName), path(samfile)
@@ -101,14 +104,14 @@ process collectAlignment {
   """
     java -jar picard.jar \
         CollectAlignmentSummaryMetrics \
-        R=$reference \
-        I=$sorted_dedup \
-        O=$sampleName'alignment_metrics.txt'\
+        -R $reference \
+        -I $sorted_dedup \
+        -O $sampleName'alignment_metrics.txt'\
 
     java -jar picard.jar \
         CollectInsertSizeMetrics \
-        INPUT=$sorted_dedup \
-        OUTPUT=$sampleName'insert_metrics.txt' \
+        I=$sorted_dedup \
+        O=$sampleName'insert_metrics.txt' \
         HISTOGRAM_FILE=$sampleName'insert_size_histogram.pdf'
 
     samtools depth -a $sorted_dedup > $sampleName'depth_out.txt'
@@ -123,16 +126,18 @@ process call_variant {
   input:
   tuple val(sampleName), path(dedup), path(sorted_dedup)
   path(reference)
+  path(index)
 
   output:
   tuple val(sampleName), path('*raw_variants.vcf')
+
 
   script:
   """
     gatk HaplotypeCaller \
         -R $reference \
         -I $sorted_dedup \
-        -o $sampleName'raw_variants.vcf'
+        -O $sampleName'raw_variants.vcf'
   """
 }
 
@@ -153,14 +158,14 @@ process extract_SNPs_indels {
         gatk SelectVariants \
             -R $reference \
             -V $rawvariants \
-            -selectType SNP \
-            -o $sampleName'raw_snps.vcf'
+            -select-type SNP \
+            -O $sampleName'raw_snps.vcf'
 
         gatk SelectVariants \
             -R $reference \
             -V $rawvariants \
-            -selectType INDEL \
-            -o $sampleName'raw_indels.vcf'
+            -select-type INDEL \
+            -O $sampleName'raw_indels.vcf'
     """
 }
 
@@ -309,6 +314,7 @@ process call_variant_2 {
   input:
   tuple val(sampleName), path(recal_data), path(recal_reads)
   path(reference)
+  path(index)
 
   output:
   tuple val(sampleName), path('*raw_variants_recal.vcf')
@@ -318,7 +324,7 @@ process call_variant_2 {
     gatk HaplotypeCaller \
         -R $reference \
         -I $recal_data \
-        -o $sampleName'raw_variants_recal.vcf'
+        -O $sampleName'raw_variants_recal.vcf'
   """
 }
 
@@ -339,14 +345,14 @@ process extract_SNPs_indels2 {
         gatk SelectVariants \
             -R $reference \
             -V $rawvariantsrecal \
-            -selectType SNP \
-            -o $sampleName'raw_snps_recal.vcf'
+            -select-type SNP \
+            -O $sampleName'raw_snps_recal.vcf'
 
         gatk SelectVariants \
             -R $reference \
             -V $rawvariantsrecal \
-            -selectType INDEL \
-            -o $sampleName'raw_indels_recal.vcf'
+            -select-type INDEL \
+            -O $sampleName'raw_indels_recal.vcf'
     """
 }
 
