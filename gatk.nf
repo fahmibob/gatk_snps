@@ -15,25 +15,23 @@ workflow {
     //  .collect()
     //  .set{index_CH}
 
-    Channel.fromPath(params.ref)
-      .set{ref_CH}
     Channel.fromPath(params.index)
       .collect()
       .set{index_CH}
 
     //bwa_mem(pairs_CH, index_CH, ref_CH)
-    markdupplicate(pairs_CH)
-    collectAlignment(markdupplicate.out, ref_CH)
-    call_variant(markdupplicate.out, ref_CH, index_CH)
-    extract_SNPs_indels(call_variant.out, ref_CH, index_CH)
-    variantFiltration(extract_SNPs_indels.out, ref_CH, index_CH)
-    excludeFilteredVariants(variantFiltration.out, ref_CH, index_CH)
-    bqsr_1(excludeFilteredVariants.out, markdupplicate.out, ref_CH, index_CH)
-    bqsr_2(excludeFilteredVariants.out, bqsr_1.out, ref_CH, index_CH)
+    markdupplicate(pairs_CH, index_CH)
+    collectAlignment(markdupplicate.out)
+    call_variant(markdupplicate.out)
+    extract_SNPs_indels(call_variant.out)
+    variantFiltration(extract_SNPs_indels.out)
+    excludeFilteredVariants(variantFiltration.out)
+    bqsr_1(excludeFilteredVariants.out, markdupplicate.out)
+    bqsr_2(excludeFilteredVariants.out, bqsr_1.out)
     //analyzeCovariates(bqsr_1.out, bqsr_2.out)
-    call_variant_2(bqsr_1.out, ref_CH, index_CH)
-    extract_SNPs_indels2(call_variant_2.out, ref_CH, index_CH)
-    variantFiltration2(extract_SNPs_indels2.out, ref_CH, index_CH)
+    call_variant_2(bqsr_1.out)
+    extract_SNPs_indels2(call_variant_2.out)
+    variantFiltration2(extract_SNPs_indels2.out)
     compileStatistics(collectAlignment.out, markdupplicate.out, extract_SNPs_indels.out, variantFiltration.out, extract_SNPs_indels2.out, variantFiltration2.out)
   }
 
@@ -75,10 +73,10 @@ process markdupplicate {
 
 
   input:
-  tuple val(sampleName), path(samfile)
-
+  tuple val(sampleName), path(samfile), path(index)
+  
   output:
-  tuple val(sampleName), path('*dedup_metrics.txt'), path('*sorted_dedup_reads.bam')
+  tuple val(sampleName), path('*dedup_metrics.txt'), path('*sorted_dedup_reads.bam'), path(index)
 
   script:
   """
@@ -96,17 +94,16 @@ process collectAlignment {
   errorStrategy 'ignore'
 
   input:
-  tuple val(sampleName), path(dedup), path(sorted_dedup)
-  path(reference)
+  tuple val(sampleName), path(dedup), path(sorted_dedup), path(index)
 
   output:
-  tuple path('*alignment_metrics.txt'), path('*insert_metrics.txt'), path('*insert_size_histogram.pdf'), path('*depth_out.txt')
+  tuple path('*alignment_metrics.txt'), path('*insert_metrics.txt'), path('*insert_size_histogram.pdf'), path('*depth_out.txt'), path(index)
 
   script:
   """
     java -jar ~/picard.jar \
         CollectAlignmentSummaryMetrics \
-        -R $reference \
+        -R $params.ref \
         -I $sorted_dedup \
         -O $sampleName'alignment_metrics.txt'\
 
@@ -126,19 +123,17 @@ process call_variant {
   errorStrategy 'ignore'
 
   input:
-  tuple val(sampleName), path(dedup), path(sorted_dedup)
-  path(reference)
-  path(index)
+  tuple val(sampleName), path(dedup), path(sorted_dedup), path(index)
 
   output:
-  tuple val(sampleName), path('*raw_variants.vcf')
+  tuple val(sampleName), path('*raw_variants.vcf'), path(index)
 
 
   script:
   """
     samtools index $sorted_dedup
     gatk HaplotypeCaller \
-        -R $reference \
+        -R $params.ref \
         -I $sorted_dedup \
         -O $sampleName'raw_variants.vcf'
   """
@@ -150,23 +145,21 @@ process extract_SNPs_indels {
     errorStrategy 'ignore'
 
     input:
-    tuple val(sampleName), path(rawvariants)
-    path(reference)
-    path(index)
+    tuple val(sampleName), path(rawvariants), path(index)
 
     output:
-    tuple val(sampleName), path('*raw_snps.vcf'), path('*raw_indels.vcf')
+    tuple val(sampleName), path('*raw_snps.vcf'), path('*raw_indels.vcf'), path(index)
 
     script:
     """
         gatk SelectVariants \
-            -R $reference \
+            -R $params.ref \
             -V $rawvariants \
             -select-type SNP \
             -O $sampleName'raw_snps.vcf'
 
         gatk SelectVariants \
-            -R $reference \
+            -R $params.ref \
             -V $rawvariants \
             -select-type INDEL \
             -O $sampleName'raw_indels.vcf'
@@ -179,17 +172,15 @@ process variantFiltration  {
     errorStrategy 'ignore'
 
     input:
-    tuple val(sampleName), path(raw_snps), path(raw_indels)
-    path(reference)
-    path(index)
+    tuple val(sampleName), path(raw_snps), path(raw_indels), path(index)
 
     output:
-    tuple val(sampleName), path('*filtered_snps.vcf'), path('*filtered_indels.vcf')
+    tuple val(sampleName), path('*filtered_snps.vcf'), path('*filtered_indels.vcf'), path(index)
 
     script:
     """
         gatk VariantFiltration \
-        -R $reference \
+        -R $params.ref \
         -V $raw_snps \
         -O $sampleName'filtered_snps.vcf' \
         -filter-name "QD_filter" -filter "QD < 2.0" \
@@ -200,7 +191,7 @@ process variantFiltration  {
         -filter-name "ReadPosRankSum_filter" -filter "ReadPosRankSum < -8.0"
 
          gatk VariantFiltration \
-        -R $reference \
+        -R $params.ref \
         -V $raw_indels \
         -O $sampleName'filtered_indels.vcf' \
         -filter-name "QD_filter" -filter "QD < 2.0" \
@@ -216,9 +207,7 @@ process excludeFilteredVariants  {
     errorStrategy 'ignore'
 
     input:
-    tuple val(sampleName), path(filtered_snps), path(filtered_indels)
-    path(reference)
-    path(index)
+    tuple val(sampleName), path(filtered_snps), path(filtered_indels), path(index)
 
     output:
     tuple val(sampleName), path('*bqsr_snps.vcf'), path('*bqsr_indels.vcf')
@@ -244,12 +233,10 @@ process bqsr_1  {
 
     input:
     tuple val(sampleName), path(bqsr_snps), path(bqsr_indels)
-    tuple val(sampleName2), path(dedup), path(sorted_dedup)
-    path(reference)
-    path(index)
+    tuple val(sampleName2), path(dedup), path(sorted_dedup), path(index)
 
     output:
-    tuple val(sampleName), path('*recal_data.table'), path('*recal_reads.bam')
+    tuple val(sampleName), path('*recal_data.table'), path('*recal_reads.bam'), path(index)
 
     script:
     """
@@ -267,14 +254,14 @@ process bqsr_1  {
 
 
         gatk BaseRecalibrator \
-        -R $reference \
+        -R $params.ref \
         -I ModifiedRG$sorted_dedup \
         --known-sites $bqsr_snps \
         --known-sites $bqsr_indels \
         -O $sampleName'recal_data.table'
 
         gatk ApplyBQSR \
-        -R $reference \
+        -R $params.ref \
         -I ModifiedRG$sorted_dedup \
         -bqsr $sampleName'recal_data.table' \
         -O $sampleName'recal_reads.bam' \
@@ -288,9 +275,7 @@ process bqsr_2  {
 
     input:
     tuple val(sampleName), path(bqsr_snps), path(bqsr_indels)
-    tuple val(sampleName2), path(recal_data), path(recal_reads)
-    path(reference)
-    path(index)
+    tuple val(sampleName2), path(recal_data), path(recal_reads), path(index)
 
     output:
     path('*post_recal_data.table')
@@ -300,7 +285,7 @@ process bqsr_2  {
     gatk IndexFeatureFile -I $bqsr_snps
     gatk IndexFeatureFile -I $bqsr_indels
         gatk BaseRecalibrator \
-        -R $reference \
+        -R $params.ref \
         -I $recal_reads \
         --known-sites $bqsr_snps \
         --known-sites $bqsr_indels \
@@ -335,18 +320,16 @@ process call_variant_2 {
   errorStrategy 'ignore'
 
   input:
-  tuple val(sampleName), path(recal_data), path(recal_reads)
-  path(reference)
-  path(index)
+  tuple val(sampleName), path(recal_data), path(recal_reads), path(index)
 
   output:
-  tuple val(sampleName), path('*raw_variants_recal.vcf')
+  tuple val(sampleName), path('*raw_variants_recal.vcf'), path(index)
 
   script:
   """
     samtools index $recal_reads
     gatk HaplotypeCaller \
-        -R $reference \
+        -R $params.ref \
         -I $recal_reads \
         -O $sampleName'raw_variants_recal.vcf'
   """
@@ -358,23 +341,21 @@ process extract_SNPs_indels2 {
     errorStrategy 'ignore'
 
     input:
-    tuple val(sampleName), path(rawvariantsrecal)
-    path(reference)
-    path(index)
+    tuple val(sampleName), path(rawvariantsrecal), path(index)
 
     output:
-    tuple val(sampleName), path('*raw_snps_recal.vcf'), path('*raw_indels_recal.vcf')
+    tuple val(sampleName), path('*raw_snps_recal.vcf'), path('*raw_indels_recal.vcf'), path(index)
 
     script:
     """
         gatk SelectVariants \
-            -R $reference \
+            -R $params.ref \
             -V $rawvariantsrecal \
             -select-type SNP \
             -O $sampleName'raw_snps_recal.vcf'
 
         gatk SelectVariants \
-            -R $reference \
+            -R $params.ref \
             -V $rawvariantsrecal \
             -select-type INDEL \
             -O $sampleName'raw_indels_recal.vcf'
@@ -387,9 +368,7 @@ process variantFiltration2  {
     errorStrategy 'ignore'
 
     input:
-    tuple val(sampleName), path(raw_snps_recal), path(raw_indels_recal)
-    path(reference)
-    path(index)
+    tuple val(sampleName), path(raw_snps_recal), path(raw_indels_recal), path(index)
 
     output:
     tuple val(sampleName), path('*filtered_snps_final.vcf'), path('*filtered_indels_final.vcf')
@@ -397,7 +376,7 @@ process variantFiltration2  {
     script:
     """
         gatk VariantFiltration \
-        -R $reference \
+        -R $params.ref \
         -V $raw_snps_recal \
         -O $sampleName'filtered_snps_final.vcf' \
         -filter-name "QD_filter" -filter "QD < 2.0" \
@@ -408,7 +387,7 @@ process variantFiltration2  {
         -filter-name "ReadPosRankSum_filter" -filter "ReadPosRankSum < -8.0"
 
          gatk VariantFiltration \
-        -R $reference \
+        -R $params.ref \
         -V $raw_indels_recal \
         -O $sampleName'filtered_indels_final.vcf' \
         -filter-name "QD_filter" -filter "QD < 2.0" \
@@ -424,16 +403,16 @@ process compileStatistics {
 
     input:
     //collectAlignment
-    tuple path(alignment_metrics), path(insert_metrics), path(insert_size_histogram), path(depth_out)
+    tuple path(alignment_metrics), path(insert_metrics), path(insert_size_histogram), path(depth_out), path(index)
     //markdupplicate
-    tuple val(sampleName), path(dedup_metrics), path(sorted_dedup_reads)
+    tuple val(sampleName), path(dedup_metrics), path(sorted_dedup_reads), path(index2)
     //extract_SNPs
-    tuple val(sampleName2), path(raw_snps), path(raw_indels)
+    tuple val(sampleName2), path(raw_snps), path(raw_indels), path(index3)
     //variantFiltration
-    tuple val(sampleName3), path(filtered_snps), path(filtered_indels)
+    tuple val(sampleName3), path(filtered_snps), path(filtered_indels), path(index4)
     //extract_SNPs_2
-    tuple val(sampleName4), path(raw_snps_recal), path(raw_indels_recal)
-    //variantFiltration
+    tuple val(sampleName4), path(raw_snps_recal), path(raw_indels_recal), path(index5)
+    //variantFiltration2
     tuple val(sampleName5), path(filtered_snps_final), path(filtered_indels_final)
 
 
